@@ -2,6 +2,7 @@
 name: flutter-runtime-integrate
 description: Add or update in-house flutter_agent_runtime integration in a Flutter app, including runtime initialization, Riverpod ProviderObserver forwarding, GoRouter observer and redirect forwarding, Talker observer forwarding, and metadata-only network request recording. Use when asked to wire the runtime into an app or update existing observer data shapes.
 argument-hint: "[Flutter app path]"
+user-invocable: false
 ---
 
 # Flutter Runtime Integration

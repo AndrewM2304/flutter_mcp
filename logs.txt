@@ -1,67 +1,93 @@
-User: connect to ws://127.0.0.1:57765/Bbsng0ekYII=/ws
-workspace_root: /Users/andrewmiller/Development/mcp/examples/runtime_sample_app
+User: /flutter ws://127.0.0.1:49217/sXwEB5Xc-VM=/ws
 
-GitHub Copilot: The `flutter-agent-runtime` MCP tools aren't available yet. Please start the server:
+GitHub Copilot: I have your Flutter VM Service URI. I need the **app workspace root** to connect—this is the folder path where your Flutter app's pubspec.yaml lives.
 
-1. Open **MCP: List Servers** in VS Code (Cmd+Shift+P)
-2. Find and start `flutter-agent-runtime`
-3. Confirm in the Debug Logs that it shows `received initialize request`
+Is this the main app repo or a sub-repo (like runtime_sample_app)? Provide the full path, and I'll connect and show you the menu.
 
-Once running, I'll connect to your app at `ws://127.0.0.1:57765/Bbsng0ekYII=/ws`.
+User: its in runtime sample app
 
-User: connect to ws://127.0.0.1:59298/29IfGQQ9gXA=/ws
-workspace_root: /Users/andrewmiller/Development/mcp/examples/runtime_sample_app
-
-GitHub Copilot: Optimized tool selection
-
-Ran `connect_to_app` 
+GitHub Copilot: Ran `connect_to_app` 
 Completed with input: {
-  "uri": "ws://127.0.0.1:59298/29IfGQQ9gXA=/ws",
+  "uri": "ws://127.0.0.1:49217/sXwEB5Xc-VM=/ws",
   "workspace_root": "/Users/andrewmiller/Development/mcp/examples/runtime_sample_app"
 }
 
-Connected! ✅ The app has the runtime instrumentation. Now getting diagnostics... Let me check the available status: 
+✅ **Connected** to `runtime_sample_app`. Agent runtime is active with diagnostics, Riverpod, GoRouter, and rebuild tracking available.
 
-Ran `flutter_status` 
-Completed with input: {}
+Here's your focused next-action menu:
 
-Connected successfully! Runtime is initialized with:
-- **Events**: 2
-- **Providers**: 1  
-- **Route**: 1
-- **No errors or network activity yet**
+1. **Record a user flow** — Capture runtime events as you interact with the app
+2. **Diagnose current screen** — Check current route, providers, and app health
+3. **Investigate latest error** — Review the newest runtime or platform error
+4. **Trace navigation issue** — Debug GoRouter redirects or route ordering
+5. **Find rebuild hotspots** — Sample widget rebuilds during interaction
+6. **Check runtime integration** — Verify Riverpod, GoRouter, and agent setup
+7. **Review network failures** — Inspect metadata-only network requests
+8. **Explain provider changes** — View live Riverpod provider values
+9. **Create bug report from session** — Capture diagnostics for a specific issue
+10. **Compare before and after an action** — Record flows before/after a change
 
-Getting current app state:   
+**Reply with a number or describe what you'd like to debug.**
 
-Ran `flutter_events` 
+User: Start recording a user flow now. Call start_flow_recording immediately with label "user selected Record Flow" and track_rebuilds=false. After the tool succeeds, tell me recording is active and ask me to perform the app flow. Wait until I say I am done before calling stop_flow_recording. Do not show more prompt options.
+
+GitHub Copilot: Ran `start_flow_recording` 
 Completed with input: {
-  "limit": 10
+  "label": "user selected Record Flow",
+  "track_rebuilds": false
 }
 
-Ran `go_router_state` 
-Completed with input: {}
+✅ **Recording is active.**
 
-**Connected and capturing runtime events!**
+Go ahead and perform your app flow now. Use the app however you'd like to test. When you're done, reply `done` and I'll stop the recording and show you the captured events.
 
-**Current State:**
-- **Route**: `home` (at bottom of stack after navigation)
-- **Provider**: `counterProvider` = 2 (last value from events)
-- **Status**: All healthy, no errors
+User: done
 
-**Recent Activity** (events 1–10):
-1. **21:23:43** – App initialized, route `home` pushed
-2. **21:23:43** – `counterProvider` initialized to `0`
-3–4. **21:25:41** – Counter incremented `0` → `1`, log: "Counter incremented"
-5–6. **21:25:41** – Counter incremented `1` → `2`, log: "Counter incremented"  
-7–8. **21:25:42** – 2 × GET requests to `https://api.example.test/items` (200 OK, 42ms each, auth header redacted)
-9–10. **21:25:43** – Navigated `home` → `details`, then popped back to `home`
+GitHub Copilot: Ran `stop_flow_recording` 
+Completed with input: {
+  "summary": true
+}
 
-**Instrumentation enabled:**
-- Riverpod provider tracking ✓
-- GoRouter navigation ✓  
-- Network metadata capture ✓
-- Talker logs ✓
-- Error hooks ✓
-- Rebuild tracking available ✓
+**Flow Recording Summary** (16 seconds)
 
-What would you like to investigate?
+**Navigation (4 events):**
+- ✓ Pushed to details screen
+- ✓ Popped back to home screen
+- Clean navigation with no errors
+
+**Network (4 events):**
+- 4× GET `https://api.example.test/items` → **200 OK** (42ms each)
+- All requests succeeded, authorization redacted
+- No failed requests
+
+**Provider State:**
+- `counterProvider` stable at **9**
+- No provider updates during flow
+
+**Health:**
+- ✅ No errors
+- ✅ No suspicious logs
+- ✅ No rebuild hotspots (tracking disabled)
+
+The app is running smoothly. What would you like to investigate next?
+
+User: Find rebuild hotspots now. Call widget_rebuilds and ask me to interact with the app during the sample window. Do not show more prompt options.
+
+GitHub Copilot: Ran `widget_rebuilds` 
+Completed with input: {
+  "duration_seconds": 10
+}
+
+**Rebuild Hotspots** (10-second sample)
+
+**Top Rebuilds:**
+
+1. **FilledButton** main.dart — **13 rebuilds** 🔴
+2. **FilledButton** main.dart — **12 rebuilds** 🔴
+3. **TextButton** main.dart — **9 rebuilds** 
+4. **AppBar** main.dart — **6 rebuilds**
+5. **HomeScreen** main.dart — **5 rebuilds**
+
+The two `FilledButton` widgets are your primary hotspots. This is typical for interactive buttons responding to provider state changes. No excessive or unexpected rebuild patterns detected.
+
+What's next?

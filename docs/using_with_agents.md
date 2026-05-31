@@ -113,6 +113,50 @@ network_requests
 widget_rebuilds
 ```
 
+The MCP server also exposes one scoped starter prompt so Flutter runtime
+debugging does not pollute the global workspace prompt-file list. In VS Code,
+type `/mcp.` and choose:
+
+```text
+/mcp.flutter-agent-runtime.startFlutterRuntimeDebugger
+```
+
+There is also one short workspace prompt for discoverability:
+
+```text
+/flutter
+```
+
+The `/flutter` prompt is tied to the **Flutter Runtime Debugger** agent and is
+intended to be the easy-to-find entry point when the MCP prompt is not surfaced
+by the current VS Code build.
+
+After the first diagnostic response, the Flutter Runtime Debugger agent is
+oriented around recording a session first, then reviewing that recorded window
+through a specific lens. The handoff buttons are configured with `send: true`,
+so selecting **Record Session** submits immediately and the agent should call
+`start_flow_recording`; it should not merely prefill a message for the user to
+send. After the user stops the session, review buttons focus the same recording
+on everything, errors/logs, network calls, rebuilds, provider changes,
+navigation, or a bug report.
+
+VS Code prompts for the prompt arguments when provided by the MCP server: VM
+Service or DevTools URL, workspace root, and an optional goal. The starter prompt
+connects first, runs a diagnostic pass, then offers the session recording and
+review workflow.
+
+MCP prompts are scoped to the MCP server. They are not the same as workspace
+prompt files, so they avoid mixing Flutter runtime workflows with unrelated
+workspace or extension prompts.
+
+For richer initial UI with buttons, selects, and forms directly in chat, VS Code
+requires either a VS Code chat extension or MCP Apps. The stdio MCP server now
+uses MCP prompts because they are supported by VS Code without adding a separate
+extension package.
+
+The underlying Flutter runtime skills are marked `user-invocable: false` so they
+remain available to agents without appearing as competing slash commands.
+
 ## Manual Smoke Test
 
 You usually do not need this. It only proves the stdio protocol works.

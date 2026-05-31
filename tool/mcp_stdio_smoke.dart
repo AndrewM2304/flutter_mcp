@@ -42,11 +42,20 @@ Future<void> main(List<String> args) async {
     );
     _printResult('tools/list', tools);
 
+    final prompts = await _call(
+      process,
+      reader,
+      id: 3,
+      method: 'prompts/list',
+      params: <String, Object?>{},
+    );
+    _printResult('prompts/list', prompts);
+
     if (options.vmServiceUri != null) {
       final connect = await _call(
         process,
         reader,
-        id: 3,
+        id: 4,
         method: 'tools/call',
         params: {
           'name': 'connect_to_app',
@@ -62,7 +71,7 @@ Future<void> main(List<String> args) async {
       final diagnostics = await _call(
         process,
         reader,
-        id: 4,
+        id: 5,
         method: 'tools/call',
         params: {
           'name': 'flutter_diagnostics_bundle',
@@ -121,6 +130,14 @@ void _printResult(String label, Map<String, Object?> response) {
         .whereType<String>()
         .join(', ');
     stdout.writeln('  tools: $names');
+  }
+  if (result is Map && result['prompts'] is List) {
+    final names = (result['prompts'] as List)
+        .whereType<Map>()
+        .map((prompt) => prompt['name'])
+        .whereType<String>()
+        .join(', ');
+    stdout.writeln('  prompts: $names');
   }
 }
 
