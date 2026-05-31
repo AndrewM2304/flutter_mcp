@@ -111,8 +111,16 @@ Rebuild data comes from Flutter inspector service extensions and is sampled when
 ```json
 {
   "schemaVersion": "agent-runtime.diagnostics.v1",
+  "summary": false,
   "status": {},
   "currentRoute": {},
+  "currentProviders": {
+    "counterProvider": {
+      "provider": "counterProvider",
+      "value": 2,
+      "lastAction": "update"
+    }
+  },
   "providerCount": 12,
   "recentProviderChanges": [],
   "latestErrors": [],
@@ -121,3 +129,6 @@ Rebuild data comes from Flutter inspector service extensions and is sampled when
   "recentLogs": []
 }
 ```
+
+Pass `summary=true` for a smaller payload with fewer recent events. Read live
+provider values from `currentProviders`, not from `recentProviderChanges`.

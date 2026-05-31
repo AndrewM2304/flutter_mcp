@@ -464,9 +464,16 @@ class AgentRuntime {
     String method,
     Map<String, String> parameters,
   ) async {
+    final summary = _isTruthy(parameters['summary']);
     return developer.ServiceExtensionResponse.result(
-      _jsonString(_diagnosticsJson()),
+      _jsonString(_diagnosticsJson(summary: summary)),
     );
+  }
+
+  bool _isTruthy(String? value) {
+    if (value == null) return false;
+    final normalized = value.trim().toLowerCase();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
   }
 
   Future<developer.ServiceExtensionResponse> _recordRebuildSummaryExtension(
@@ -524,7 +531,7 @@ class AgentRuntime {
         'errors': _errors.toList().map((event) => event.toJson()).toList(),
       };
 
-  Map<String, Object?> _diagnosticsJson() {
+  Map<String, Object?> _diagnosticsJson({bool summary = false}) {
     final errors = _errors.toList();
     final failedNetwork = _network
         .where((event) {
@@ -540,28 +547,37 @@ class AgentRuntime {
           (a.data['count'] as int?) ?? 0,
         ),
       );
+    final recentProviderChanges = _providers
+        .toList()
+        .reversed
+        .take(summary ? 5 : 20)
+        .map((event) => event.toJson())
+        .toList();
+    final latestErrors =
+        errors.reversed.take(summary ? 3 : 10).map((event) => event.toJson()).toList();
+    final failedNetworkRequests =
+        failedNetwork.reversed.take(summary ? 3 : 10).toList();
+    final recentLogs = _logs
+        .toList()
+        .reversed
+        .take(summary ? 5 : 20)
+        .map((event) => event.toJson())
+        .toList();
+    final topRebuildHotspots =
+        rebuilds.take(summary ? 5 : 20).map((event) => event.toJson()).toList();
+
     return {
       'schemaVersion': 'agent-runtime.diagnostics.v1',
+      if (summary) 'summary': true,
       'status': _statusJson(),
       'currentRoute': _routeState,
+      'currentProviders': _providerState,
       'providerCount': _providerState.length,
-      'recentProviderChanges': _providers
-          .toList()
-          .reversed
-          .take(20)
-          .map((event) => event.toJson())
-          .toList(),
-      'latestErrors':
-          errors.reversed.take(10).map((event) => event.toJson()).toList(),
-      'failedNetworkRequests': failedNetwork.reversed.take(10).toList(),
-      'topRebuildHotspots':
-          rebuilds.take(20).map((event) => event.toJson()).toList(),
-      'recentLogs': _logs
-          .toList()
-          .reversed
-          .take(20)
-          .map((event) => event.toJson())
-          .toList(),
+      'recentProviderChanges': recentProviderChanges,
+      'latestErrors': latestErrors,
+      'failedNetworkRequests': failedNetworkRequests,
+      'topRebuildHotspots': topRebuildHotspots,
+      'recentLogs': recentLogs,
     };
   }
 

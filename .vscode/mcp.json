@@ -1,10 +1,14 @@
 {
   "servers": {
     "flutter-agent-runtime": {
+      "type": "stdio",
       "command": "dart",
       "args": [
-        "packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart"
-      ]
+        "${workspaceFolder}/packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart"
+      ],
+      "env": {
+        "PATH": "${env:HOME}/Development/flutter/bin:/opt/homebrew/bin:/usr/local/bin:${env:PATH}"
+      }
     }
   }
 }

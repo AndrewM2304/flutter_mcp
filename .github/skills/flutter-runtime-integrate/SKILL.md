@@ -67,11 +67,12 @@ Use package-specific commands if the app is inside a larger monorepo.
 ## Validation With MCP
 
 After code changes, ask the developer to run the app in debug mode and provide
-the VM Service URL. Confirm the current app repo's MCP client can see
+the VM Service URL. Confirm the app repo has `.vscode/mcp.json` from
+`docs/templates/app.mcp.json` and that the current chat can see
 `flutter-agent-runtime`, then use:
 
 ```text
-connect_to_app
+connect_and_diagnose
 flutter_diagnostics_bundle
 riverpod_state
 go_router_state

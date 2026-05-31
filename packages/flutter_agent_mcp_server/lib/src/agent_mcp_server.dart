@@ -12,6 +12,8 @@ class AgentMcpServer {
   final JsonRpcStdio _rpc;
   VmServiceClient? _client;
   String? _workspaceRoot;
+  String? _lastUri;
+  String? _lastWorkspaceRoot;
   final File _logFile = File('.dart_tool/flutter_agent_mcp_server.log');
 
   Future<void> run() async {
@@ -29,12 +31,17 @@ class AgentMcpServer {
     final method = message['method'] as String?;
     if (method == null) return;
 
+    if (id == null && method.startsWith('notifications/')) {
+      _log('received $method notification');
+      return;
+    }
+
     try {
       if (method != 'tools/call') {
         _log('received $method request');
       }
       final result = switch (method) {
-        'initialize' => _initialize(),
+        'initialize' => _initialize(message['params']),
         'tools/list' => _toolsList(),
         'tools/call' => await _toolsCall(message['params']),
         'ping' => <String, Object?>{},
@@ -64,11 +71,20 @@ class AgentMcpServer {
     }
   }
 
-  Map<String, Object?> _initialize() => {
-        'protocolVersion': '2024-11-05',
-        'serverInfo': {'name': 'flutter_agent_mcp_server', 'version': '0.1.0'},
-        'capabilities': {'tools': <String, Object?>{}},
-      };
+  Map<String, Object?> _initialize(Object? params) {
+    var protocolVersion = '2024-11-05';
+    if (params is Map) {
+      final requested = params['protocolVersion'] as String?;
+      if (requested != null && requested.isNotEmpty) {
+        protocolVersion = requested;
+      }
+    }
+    return {
+      'protocolVersion': protocolVersion,
+      'serverInfo': {'name': 'flutter_agent_mcp_server', 'version': '0.1.0'},
+      'capabilities': {'tools': <String, Object?>{}},
+    };
+  }
 
   Map<String, Object?> _toolsList() => {
         'tools': _tools.map((tool) => tool.toJson()).toList(),
@@ -112,6 +128,12 @@ class AgentMcpServer {
     switch (name) {
       case 'connect_to_app':
         return _connect(arguments);
+      case 'connect_and_diagnose':
+        return _connectAndDiagnose(arguments);
+      case 'reconnect_last':
+        return _reconnectLast();
+      case 'connection_status':
+        return _connectionStatus();
       case 'disconnect':
         await _client?.close();
         _client = null;
@@ -125,7 +147,7 @@ class AgentMcpServer {
       case 'flutter_events':
         return _runtimeExtension('ext.agentRuntime.events', args: arguments);
       case 'flutter_diagnostics_bundle':
-        return _runtimeExtension('ext.agentRuntime.diagnostics');
+        return _diagnosticsBundle(arguments);
       case 'riverpod_state':
         return _stateWithEvents(
           currentSection: 'providers',
@@ -162,6 +184,8 @@ class AgentMcpServer {
       );
     }
     _workspaceRoot = arguments['workspace_root'] as String?;
+    _lastUri = uri.trim();
+    _lastWorkspaceRoot = _workspaceRoot;
     await _client?.close();
     _log('connecting to Flutter VM Service: $uri');
     _client = await VmServiceClient.connect(uri);
@@ -175,7 +199,90 @@ class AgentMcpServer {
     };
   }
 
+  Future<Map<String, Object?>> _connectAndDiagnose(
+    Map<String, Object?> arguments,
+  ) async {
+    final connect = await _connect(arguments);
+    if (connect['ok'] != true) {
+      return connect;
+    }
+    final diagnostics = await _diagnosticsBundle(arguments);
+    return {
+      'ok': diagnostics['ok'] == true,
+      'connected': true,
+      'connection': connect,
+      'diagnostics': diagnostics['data'] ?? diagnostics,
+      if (diagnostics['ok'] == false) 'diagnosticsError': diagnostics,
+    };
+  }
+
+  Future<Map<String, Object?>> _reconnectLast() async {
+    final uri = _lastUri;
+    if (uri == null || uri.isEmpty) {
+      return {
+        'ok': false,
+        'reason': 'no_last_connection',
+        'message': 'No previous connection. Call connect_to_app first.',
+      };
+    }
+    return _connect({
+      'uri': uri,
+      if (_lastWorkspaceRoot != null) 'workspace_root': _lastWorkspaceRoot,
+    });
+  }
+
+  Map<String, Object?> _connectionStatus() {
+    final client = _client;
+    if (client == null) {
+      return {
+        'ok': true,
+        'connected': false,
+        if (_lastUri != null) 'lastUri': _lastUri,
+        if (_lastWorkspaceRoot != null) 'lastWorkspaceRoot': _lastWorkspaceRoot,
+      };
+    }
+    return {
+      'ok': true,
+      'connected': true,
+      'workspaceRoot': _workspaceRoot,
+      'lastUri': _lastUri,
+      'lastWorkspaceRoot': _lastWorkspaceRoot,
+    };
+  }
+
+  Future<Map<String, Object?>> _diagnosticsBundle(
+    Map<String, Object?> arguments,
+  ) async {
+    final missing = _notConnectedResult();
+    if (missing != null) {
+      return missing;
+    }
+    final summary = arguments['summary'] == true ||
+        arguments['summary']?.toString().toLowerCase() == 'true';
+    return _runtimeExtension(
+      'ext.agentRuntime.diagnostics',
+      args: summary ? {'summary': 'true'} : const {},
+    );
+  }
+
+  Map<String, Object?>? _notConnectedResult() {
+    if (_client != null) {
+      return null;
+    }
+    return {
+      'ok': false,
+      'reason': 'not_connected',
+      'message': 'Call connect_to_app or connect_and_diagnose first.',
+      if (_lastUri != null) 'lastUri': _lastUri,
+      if (_lastWorkspaceRoot != null) 'lastWorkspaceRoot': _lastWorkspaceRoot,
+    };
+  }
+
   Future<Map<String, Object?>> _getAppInfo() async {
+    final missing = _notConnectedResult();
+    if (missing != null) {
+      return missing;
+    }
     final client = _requireClient();
     final vm = await client.getVm();
     final isolate = await client.getIsolate();
@@ -225,6 +332,10 @@ class AgentMcpServer {
     String extension, {
     Map<String, Object?> args = const {},
   }) async {
+    final missing = _notConnectedResult();
+    if (missing != null) {
+      return missing;
+    }
     final client = _requireClient();
     final isolate = await client.getIsolate();
     final extensions =
@@ -250,6 +361,10 @@ class AgentMcpServer {
   Future<Map<String, Object?>> _widgetRebuilds(
     Map<String, Object?> arguments,
   ) async {
+    final missing = _notConnectedResult();
+    if (missing != null) {
+      return missing;
+    }
     final client = _requireClient();
     final durationSeconds =
         ((arguments['duration_seconds'] as num?) ?? 3).toInt();
@@ -560,8 +675,25 @@ class _Tool {
 
 final _tools = <_Tool>[
   _Tool(
+    'connect_and_diagnose',
+    'Preferred first call: connect to a running Flutter app, then return the '
+        'diagnostics bundle with currentProviders, currentRoute, errors, logs, '
+        'and network metadata. Pass summary=true for a smaller payload.',
+    {
+      'type': 'object',
+      'properties': {
+        'uri': {'type': 'string'},
+        'vmServiceUri': {'type': 'string'},
+        'workspace_root': {'type': 'string'},
+        'summary': {'type': 'boolean'},
+      },
+    },
+  ),
+  _Tool(
     'connect_to_app',
-    'Connect to a running Flutter app by VM Service URI.',
+    'Connect to a running Flutter app by VM Service or DevTools URI. Saves the '
+        'connection for reconnect_last. Usually prefer connect_and_diagnose '
+        'instead unless you only need the connection result.',
     {
       'type': 'object',
       'properties': {
@@ -571,21 +703,54 @@ final _tools = <_Tool>[
       },
     },
   ),
-  _Tool('disconnect', 'Disconnect from the current Flutter app.', {
-    'type': 'object',
-  }),
-  _Tool('get_app_info', 'Return VM, isolate, and extension capability info.', {
-    'type': 'object',
-  }),
-  _Tool('flutter_status', 'Return agent runtime status and buffer counts.', {
-    'type': 'object',
-  }),
-  _Tool('flutter_snapshot', 'Return a consolidated runtime snapshot.', {
-    'type': 'object',
-  }),
+  _Tool(
+    'reconnect_last',
+    'Reconnect using the last successful VM Service URI and workspace_root.',
+    {'type': 'object'},
+  ),
+  _Tool(
+    'connection_status',
+    'Return whether the MCP server is connected and the last known URI/workspace.',
+    {'type': 'object'},
+  ),
+  _Tool(
+    'disconnect',
+    'Disconnect from the current Flutter app.',
+    {'type': 'object'},
+  ),
+  _Tool(
+    'get_app_info',
+    'Return VM, isolate, and extension capability info for the connected app.',
+    {'type': 'object'},
+  ),
+  _Tool(
+    'flutter_diagnostics_bundle',
+    'Primary diagnostics summary after connect. Read currentProviders for live '
+        'provider values and currentRoute for navigation state. Use summary=true '
+        'for a smaller response. Call this before flutter_status or flutter_events.',
+    {
+      'type': 'object',
+      'properties': {
+        'summary': {'type': 'boolean'},
+      },
+    },
+  ),
+  _Tool(
+    'flutter_status',
+    'Return agent runtime buffer counts and install status. Secondary tool; '
+        'prefer flutter_diagnostics_bundle for app state.',
+    {'type': 'object'},
+  ),
+  _Tool(
+    'flutter_snapshot',
+    'Return full runtime snapshot including current providers/route and all '
+        'buffer contents. Larger than flutter_diagnostics_bundle.',
+    {'type': 'object'},
+  ),
   _Tool(
     'flutter_events',
-    'Return recent runtime events with optional type/since/limit filters.',
+    'Return recent raw runtime events. Optional filters: type, since, limit. '
+        'Use for timelines; prefer currentProviders for live values.',
     {
       'type': 'object',
       'properties': {
@@ -595,35 +760,50 @@ final _tools = <_Tool>[
       },
     },
   ),
-  _Tool('flutter_diagnostics_bundle',
-      'Return a concise agent debugging bundle.', {
-    'type': 'object',
-  }),
-  _Tool('riverpod_state', 'Return recent Riverpod provider events.', {
-    'type': 'object',
-  }),
-  _Tool('go_router_state', 'Return recent GoRouter route events.', {
-    'type': 'object',
-  }),
-  _Tool('app_logs', 'Return recent structured app logs.', {'type': 'object'}),
-  _Tool('network_requests', 'Return recent app-observed network metadata.', {
-    'type': 'object',
-  }),
-  _Tool('widget_rebuilds', 'Sample Flutter inspector widget rebuild events.', {
-    'type': 'object',
-    'properties': {
-      'duration_seconds': {'type': 'number'},
+  _Tool(
+    'riverpod_state',
+    'Return current provider map plus recent provider events.',
+    {'type': 'object'},
+  ),
+  _Tool(
+    'go_router_state',
+    'Return current route state plus recent navigation events.',
+    {'type': 'object'},
+  ),
+  _Tool(
+    'app_logs',
+    'Return recent structured Talker/runtime logs recorded by the app.',
+    {'type': 'object'},
+  ),
+  _Tool(
+    'network_requests',
+    'Return recent metadata-only network requests observed by the app.',
+    {'type': 'object'},
+  ),
+  _Tool(
+    'widget_rebuilds',
+    'Sample Flutter inspector rebuild events for a short window. Ask the '
+        'developer to interact with the app during sampling if idle.',
+    {
+      'type': 'object',
+      'properties': {
+        'duration_seconds': {'type': 'number'},
+      },
     },
-  }),
-  _Tool('mcp_activity_log', 'Return recent MCP server activity log lines.', {
-    'type': 'object',
-    'properties': {
-      'limit': {'type': 'number'},
+  ),
+  _Tool(
+    'mcp_activity_log',
+    'Return recent MCP server log lines when VS Code output is unclear.',
+    {
+      'type': 'object',
+      'properties': {
+        'limit': {'type': 'number'},
+      },
     },
-  }),
+  ),
   _Tool(
     'agent_runtime_configure',
-    'Configure agent runtime redaction settings.',
+    'Configure agent runtime redaction settings in the connected app.',
     {
       'type': 'object',
       'properties': {

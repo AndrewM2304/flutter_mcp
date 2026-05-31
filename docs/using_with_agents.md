@@ -40,15 +40,24 @@ server from the external tooling repo:
 .vscode/mcp.json
 ```
 
-with this server:
+Copy [templates/app.mcp.json](../templates/app.mcp.json) into the app repo, or
+use this shape directly:
 
 ```json
 {
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "flutter-agent-tooling-path",
+      "description": "Absolute path to the flutter agent MCP tooling repo on this machine"
+    }
+  ],
   "servers": {
     "flutter-agent-runtime": {
-      "command": "dart",
+      "type": "stdio",
+      "command": "/bin/bash",
       "args": [
-        "<path-to-tooling-repo>/packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart"
+        "${input:flutter-agent-tooling-path}/tool/start_flutter_agent_mcp_server.sh"
       ]
     }
   }
@@ -60,6 +69,13 @@ chat can be in the app repo; the MCP server does not need to live under that
 repo.
 
 Do not configure VS Code MCP with `dart run flutter_agent_mcp_server`. `dart run` can print package build messages to stdout before the MCP response, and stdio MCP requires stdout to contain only protocol messages.
+
+Do not point the app repo at a relative `packages/flutter_agent_mcp_server/...`
+path. VS Code starts MCP servers with the app workspace as the working
+directory, so that path will not exist outside the tooling repo.
+
+If VS Code hangs while loading the MCP server, see
+[troubleshooting_vscode_mcp.md](../troubleshooting_vscode_mcp.md).
 
 ### 3. Ask The Agent To Connect
 

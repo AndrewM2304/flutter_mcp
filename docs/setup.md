@@ -96,23 +96,34 @@ For agents, the first diagnostic tool should usually be `flutter_diagnostics_bun
 ## MCP Client Configuration
 
 When configuring an agent client from a different repo, point the command at
-the tooling repo checkout:
+the tooling repo launcher script:
 
 ```json
 {
   "servers": {
     "flutter-agent-runtime": {
-      "command": "dart",
+      "type": "stdio",
+      "command": "/bin/bash",
       "args": [
-        "<path-to-tooling-repo>/packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart"
+        "<path-to-tooling-repo>/tool/start_flutter_agent_mcp_server.sh"
       ]
     }
   }
 }
 ```
 
-Prefer this direct `dart <script>` form over `dart run` so stdout remains
-MCP-protocol-only.
+Copy [templates/app.mcp.json](templates/app.mcp.json) into the app repo as
+`.vscode/mcp.json` to prompt once per machine for the tooling repo path.
+
+Prefer this launcher over a bare `dart <script>` path from the app repo. VS Code
+starts MCP servers with the app workspace as the working directory, so relative
+`packages/...` paths will not resolve.
+
+Avoid `dart run flutter_agent_mcp_server` for MCP config because package build
+messages can write to stdout before the MCP protocol starts.
+
+If VS Code hangs while loading the MCP server, see
+[troubleshooting_vscode_mcp.md](troubleshooting_vscode_mcp.md).
 
 ## Validation
 

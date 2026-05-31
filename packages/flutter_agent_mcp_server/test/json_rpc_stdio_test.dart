@@ -7,6 +7,31 @@ import 'package:flutter_agent_mcp_server/src/vm_service_client.dart';
 import 'package:test/test.dart';
 
 void main() {
+  test('parses newline-delimited json rpc messages', () async {
+    final input = StreamController<List<int>>();
+    final output = StringBuffer();
+    final sink = _StringSink(output);
+    final rpc = JsonRpcStdio(input.stream, sink);
+
+    unawaited(rpc.start());
+    final body = jsonEncode({'jsonrpc': '2.0', 'id': 1, 'method': 'ping'});
+    input.add(utf8.encode('$body\n'));
+    await input.close();
+
+    final message = await rpc.messages.first;
+    expect(message['method'], 'ping');
+  });
+
+  test('writes newline-delimited json rpc messages', () {
+    final output = StringBuffer();
+    final sink = _StringSink(output);
+    final rpc = JsonRpcStdio(Stream.empty(), sink);
+
+    rpc.send({'jsonrpc': '2.0', 'id': 1, 'result': {}});
+
+    expect(output.toString(), '{"jsonrpc":"2.0","id":1,"result":{}}\n');
+  });
+
   test('parses content-length framed json rpc messages', () async {
     final input = StreamController<List<int>>();
     final output = StringBuffer();
@@ -52,6 +77,9 @@ class _StringSink implements IOSink {
 
   @override
   void write(Object? object) => buffer.write(object);
+
+  @override
+  Future<void> flush() async {}
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

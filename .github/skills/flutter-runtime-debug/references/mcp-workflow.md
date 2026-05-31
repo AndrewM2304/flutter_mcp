@@ -6,16 +6,25 @@
    debugged. Use this path as `workspace_root`.
 2. Confirm the Flutter app is running in debug mode.
 3. Copy the VM Service URL printed by Flutter. A DevTools URL is also acceptable.
-4. Confirm the current app repo's MCP config starts the server directly from
-   the external tooling repo:
+4. Confirm the current app repo's MCP config starts the launcher script from
+   the external tooling repo. Copy `docs/templates/app.mcp.json` into the app
+   repo as `.vscode/mcp.json` when needed:
 
 ```json
 {
+  "inputs": [
+    {
+      "type": "promptString",
+      "id": "flutter-agent-tooling-path",
+      "description": "Absolute path to the flutter agent MCP tooling repo on this machine"
+    }
+  ],
   "servers": {
     "flutter-agent-runtime": {
-      "command": "dart",
+      "type": "stdio",
+      "command": "/bin/bash",
       "args": [
-        "<path-to-tooling-repo>/packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart"
+        "${input:flutter-agent-tooling-path}/tool/start_flutter_agent_mcp_server.sh"
       ]
     }
   }
@@ -24,17 +33,26 @@
 
 Do not configure the MCP server as `dart run flutter_agent_mcp_server`; package build messages on stdout can break stdio MCP initialization.
 
+Do not use a relative `packages/flutter_agent_mcp_server/...` path from the app
+repo. VS Code starts MCP servers with the app workspace as the working directory.
+
 If the agent cannot see the MCP tools, report that the current app workspace
 does not have the `flutter-agent-runtime` server available and ask for the app
-repo MCP config to be reloaded.
+repo MCP config to be reloaded. If chat stalls on MCP loading, see
+`docs/troubleshooting_vscode_mcp.md`.
 
 ## Tool Order
 
-Use this order for a full pass:
+Preferred first call:
+
+```text
+connect_and_diagnose (summary=true)
+```
+
+Otherwise:
 
 ```text
 connect_to_app
-get_app_info
 flutter_diagnostics_bundle
 riverpod_state
 go_router_state
@@ -43,6 +61,13 @@ network_requests
 widget_rebuilds
 mcp_activity_log
 ```
+
+Do not call `flutter_status` or `flutter_events` before `flutter_diagnostics_bundle`.
+
+Read output using [diagnostics-shape.md](./diagnostics-shape.md).
+
+If chat shows `Starting MCP servers flutter-agent-runtime... Skip?`, stop and ask
+the developer to start the server from **MCP: List Servers** before continuing.
 
 Use `flutter_diagnostics_bundle` again after rebuild sampling or after the developer reproduces an issue.
 

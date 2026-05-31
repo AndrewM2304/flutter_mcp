@@ -91,5 +91,7 @@ Use `dart tool/mcp_stdio_smoke.dart --vm-service-uri <uri> --workspace-root <app
 - [Setup](docs/setup.md)
 - [Importing into work repos](docs/importing_at_work.md)
 - [Using with agents](docs/using_with_agents.md)
+- [Troubleshooting VS Code MCP loading](docs/troubleshooting_vscode_mcp.md)
+- [Dash client onboarding](docs/dash_client_onboarding.md)
 - [Runtime data shapes](docs/data_shapes.md)
 - [One-time observer shape update instructions](docs/agent_observer_shape_update.md)

@@ -98,9 +98,7 @@ Future<Map<String, Object?>> _call(
     'method': method,
     'params': params,
   });
-  final bytes = utf8.encode(body);
-  process.stdin.add(utf8.encode('Content-Length: ${bytes.length}\r\n\r\n'));
-  process.stdin.add(bytes);
+  process.stdin.add(utf8.encode('$body\n'));
   await process.stdin.flush();
 
   final response = await reader.next.timeout(
@@ -152,33 +150,78 @@ class _McpReader {
   }
 
   void _drain() {
-    var bytes = _buffer.takeBytes();
-    while (true) {
-      final headerEnd = _headerEnd(bytes);
-      if (headerEnd < 0) {
+    List<int> bytes = _buffer.takeBytes();
+    while (bytes.isNotEmpty) {
+      if (_startsWithContentLengthHeader(bytes)) {
+        final remaining = _consumeContentLengthFrame(bytes);
+        if (remaining == null) {
+          _buffer.add(bytes);
+          return;
+        }
+        bytes = remaining;
+        continue;
+      }
+
+      final newlineIndex = _indexOfNewline(bytes);
+      if (newlineIndex < 0) {
         _buffer.add(bytes);
         return;
       }
-      final header = utf8.decode(bytes.sublist(0, headerEnd));
-      final length = _contentLength(header);
-      if (length == null) {
-        _addError(FormatException('Missing Content-Length header'));
-        return;
+
+      var lineEnd = newlineIndex;
+      if (newlineIndex > 0 && bytes[newlineIndex - 1] == 13) {
+        lineEnd = newlineIndex - 1;
       }
-      final bodyStart = headerEnd + 4;
-      final bodyEnd = bodyStart + length;
-      if (bytes.length < bodyEnd) {
-        _buffer.add(bytes);
-        return;
+
+      final line = utf8.decode(bytes.sublist(0, lineEnd)).trim();
+      bytes = bytes.sublist(newlineIndex + 1);
+      if (line.isEmpty) {
+        continue;
       }
-      final decoded =
-          jsonDecode(utf8.decode(bytes.sublist(bodyStart, bodyEnd)));
+
+      final decoded = jsonDecode(line);
       if (decoded is Map) {
         _addMessage(Map<String, Object?>.from(decoded));
       }
-      bytes = bytes.sublist(bodyEnd);
-      if (bytes.isEmpty) return;
     }
+  }
+
+  List<int>? _consumeContentLengthFrame(List<int> bytes) {
+    final headerEnd = _headerEnd(bytes);
+    if (headerEnd < 0) {
+      return null;
+    }
+    final header = utf8.decode(bytes.sublist(0, headerEnd));
+    final length = _contentLength(header);
+    if (length == null) {
+      _addError(FormatException('Missing Content-Length header'));
+      return const [];
+    }
+    final bodyStart = headerEnd + 4;
+    final bodyEnd = bodyStart + length;
+    if (bytes.length < bodyEnd) {
+      return null;
+    }
+    final decoded = jsonDecode(utf8.decode(bytes.sublist(bodyStart, bodyEnd)));
+    if (decoded is Map) {
+      _addMessage(Map<String, Object?>.from(decoded));
+    }
+    return bytes.sublist(bodyEnd);
+  }
+
+  bool _startsWithContentLengthHeader(List<int> bytes) {
+    final prefixLength = bytes.length < 16 ? bytes.length : 16;
+    final prefix = utf8.decode(bytes.sublist(0, prefixLength)).toLowerCase();
+    return prefix.startsWith('content-length:');
+  }
+
+  int _indexOfNewline(List<int> bytes) {
+    for (var i = 0; i < bytes.length; i++) {
+      if (bytes[i] == 10) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   int _headerEnd(List<int> bytes) {

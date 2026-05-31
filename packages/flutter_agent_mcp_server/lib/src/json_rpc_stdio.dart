@@ -23,42 +23,93 @@ class JsonRpcStdio {
   }
 
   void send(Map<String, Object?> message) {
-    final body = utf8.encode(jsonEncode(message));
-    output.add(utf8.encode('Content-Length: ${body.length}\r\n\r\n'));
-    output.add(body);
+    // MCP stdio uses newline-delimited JSON (VS Code, Claude, Copilot).
+    output.add(utf8.encode('${jsonEncode(message)}\n'));
+    unawaited(output.flush().catchError((_) {}));
   }
 
   void _drain(BytesBuilder builder) {
-    var bytes = builder.takeBytes();
-    while (true) {
-      final headerEnd = _indexOfHeaderEnd(bytes);
-      if (headerEnd < 0) {
+    List<int> bytes = builder.takeBytes();
+    while (bytes.isNotEmpty) {
+      if (_startsWithContentLengthHeader(bytes)) {
+        final remaining = _consumeContentLengthFrame(bytes);
+        if (remaining == null) {
+          builder.add(bytes);
+          return;
+        }
+        bytes = remaining;
+        continue;
+      }
+
+      final newlineIndex = _indexOfNewline(bytes);
+      if (newlineIndex < 0) {
         builder.add(bytes);
         return;
       }
 
-      final header = utf8.decode(bytes.sublist(0, headerEnd));
-      final length = _contentLength(header);
-      if (length == null) {
-        _messages.addError(FormatException('Missing Content-Length header'));
-        return;
+      var lineEnd = newlineIndex;
+      if (newlineIndex > 0 && bytes[newlineIndex - 1] == 13) {
+        lineEnd = newlineIndex - 1;
       }
 
-      final bodyStart = headerEnd + 4;
-      final bodyEnd = bodyStart + length;
-      if (bytes.length < bodyEnd) {
-        builder.add(bytes);
-        return;
+      final line = utf8.decode(bytes.sublist(0, lineEnd)).trim();
+      bytes = bytes.sublist(newlineIndex + 1);
+      if (line.isEmpty) {
+        continue;
       }
 
-      final body = utf8.decode(bytes.sublist(bodyStart, bodyEnd));
-      final decoded = jsonDecode(body);
+      _addDecodedLine(line);
+    }
+  }
+
+  List<int>? _consumeContentLengthFrame(List<int> bytes) {
+    final headerEnd = _indexOfHeaderEnd(bytes);
+    if (headerEnd < 0) {
+      return null;
+    }
+
+    final header = utf8.decode(bytes.sublist(0, headerEnd));
+    final length = _contentLength(header);
+    if (length == null) {
+      _messages.addError(FormatException('Missing Content-Length header'));
+      return const [];
+    }
+
+    final bodyStart = headerEnd + 4;
+    final bodyEnd = bodyStart + length;
+    if (bytes.length < bodyEnd) {
+      return null;
+    }
+
+    final body = utf8.decode(bytes.sublist(bodyStart, bodyEnd));
+    _addDecodedLine(body);
+    return bytes.sublist(bodyEnd);
+  }
+
+  void _addDecodedLine(String line) {
+    try {
+      final decoded = jsonDecode(line);
       if (decoded is Map) {
         _messages.add(Map<String, Object?>.from(decoded));
       }
-      bytes = bytes.sublist(bodyEnd);
-      if (bytes.isEmpty) return;
+    } on FormatException catch (error) {
+      _messages.addError(error);
     }
+  }
+
+  bool _startsWithContentLengthHeader(List<int> bytes) {
+    final prefixLength = bytes.length < 16 ? bytes.length : 16;
+    final prefix = utf8.decode(bytes.sublist(0, prefixLength)).toLowerCase();
+    return prefix.startsWith('content-length:');
+  }
+
+  int _indexOfNewline(List<int> bytes) {
+    for (var i = 0; i < bytes.length; i++) {
+      if (bytes[i] == 10) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   int _indexOfHeaderEnd(List<int> bytes) {

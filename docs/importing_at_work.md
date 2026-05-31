@@ -51,17 +51,34 @@ Copy or vendor these files into the agent/skills repo:
 Keep the skill references generic. Do not add machine-specific absolute paths
 to checked-in agent or skill files.
 
+Point VS Code at the external agent/skills repo from the app workspace. Add
+[work.vscode.settings.json](templates/work.vscode.settings.json) to the app
+repo `.vscode/settings.json`, adjusting the paths for each developer machine.
+Alternatively, copy the agent and skills folders into the user profile:
+
+```text
+~/.copilot/agents
+~/.copilot/skills
+```
+
 ## MCP Client Config
 
-Configure the agent client to run the server script directly:
+Configure the app repo agent client to run the launcher script from the tooling
+repo. Copy [app.mcp.json](templates/app.mcp.json) into the app repo as
+`.vscode/mcp.json`. The first start prompts for the tooling repo path on that
+machine.
+
+For the tooling repo itself, `.vscode/mcp.json` uses the launcher relative to
+`${workspaceFolder}`.
 
 ```json
 {
   "servers": {
     "flutter-agent-runtime": {
-      "command": "dart",
+      "type": "stdio",
+      "command": "/bin/bash",
       "args": [
-        "<path-to-tooling-repo>/packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart"
+        "<path-to-tooling-repo>/tool/start_flutter_agent_mcp_server.sh"
       ]
     }
   }
@@ -70,6 +87,15 @@ Configure the agent client to run the server script directly:
 
 Avoid `dart run flutter_agent_mcp_server` for MCP config because package build
 messages can write to stdout before the MCP protocol starts.
+
+If VS Code hangs while loading the MCP server, see
+[troubleshooting_vscode_mcp.md](troubleshooting_vscode_mcp.md).
+
+For app repo setup, run:
+
+```bash
+./tool/setup_vscode_for_app.sh /path/to/app-repo
+```
 
 ## Validation Before Import
 

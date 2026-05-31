@@ -5,7 +5,7 @@ This repository contains an in-house Flutter runtime instrumentation package and
 ## Rules
 
 - Keep the MCP server stdout protocol-only. Human-readable diagnostics must go to stderr or `.dart_tool/flutter_agent_mcp_server.log`.
-- Prefer direct `dart <tooling-repo>/packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart` in MCP configuration over `dart run flutter_agent_mcp_server`.
+- Prefer `tool/start_flutter_agent_mcp_server.sh` in MCP configuration for app repos. Direct `dart <tooling-repo>/packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart` is fine when the MCP client cwd is the tooling repo.
 - Keep app integration additive. Do not remove existing Riverpod, GoRouter, or Talker observers when adding agent runtime forwarding.
 - Keep network capture metadata-only unless a future explicit feature changes the privacy model.
 - Use bounded buffers and safe serialization for runtime data.

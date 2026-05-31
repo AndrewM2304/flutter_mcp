@@ -1,0 +1,9 @@
+{
+  "chat.mcp.autostart": "never",
+  "chat.agentFilesLocations": [
+    "${env:HOME}/Development/flutter-agent-mcp/.github/agents"
+  ],
+  "chat.agentSkillsLocations": [
+    "${env:HOME}/Development/flutter-agent-mcp/.github/skills"
+  ]
+}

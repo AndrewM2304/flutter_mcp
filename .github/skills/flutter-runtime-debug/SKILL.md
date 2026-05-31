@@ -10,7 +10,8 @@ This skill runs live diagnostics from the current Flutter app repo or app
 sub-repo against the `flutter_agent_runtime` MCP server. The MCP server may live
 in a separate tooling repo and should be exposed to the current agent session as
 `flutter-agent-runtime`. Follow the workflow in
-[MCP workflow](./references/mcp-workflow.md).
+[MCP workflow](./references/mcp-workflow.md) and read output using
+[diagnostics shape](./references/diagnostics-shape.md).
 
 ## Inputs
 
@@ -30,48 +31,78 @@ http://127.0.0.1:49654/85TQl9gidoE=/devtools/?uri=ws://127.0.0.1:49654/85TQl9gid
 
 ## Process
 
-1. Confirm the `flutter-agent-runtime` MCP tools are available. If they are not
-   available, ask the developer to configure the current app repo's MCP client
-   to start the server script from the tooling repo.
-2. Call `connect_to_app` with `uri` and `workspace_root`.
-3. Call `flutter_diagnostics_bundle` and use it as the main summary.
-4. Call targeted tools only when useful:
-   - `riverpod_state` for provider lifecycle, updates, and latest values.
-   - `go_router_state` for route stack, current location, redirects, and route errors.
-   - `app_logs` for structured Talker/runtime logs.
-   - `network_requests` for metadata-only HTTP failures or slow calls.
-   - `flutter_events` for raw recent runtime events by category.
-5. For rebuild investigations, call `widget_rebuilds`. Ask the developer to
+1. Confirm the `flutter-agent-runtime` MCP tools are available. If not, ask the
+   developer to start the server from **MCP: List Servers**. Do not substitute
+   Dart SDK MCP tools after Skip.
+2. Prefer `connect_and_diagnose` with `summary: true` for the first pass.
+3. Otherwise call `connect_to_app`, then immediately call
+   `flutter_diagnostics_bundle`.
+4. Read `currentProviders` and `currentRoute` before any other runtime tool.
+5. Call targeted tools only when useful:
+   - `riverpod_state` for provider lifecycle history
+   - `go_router_state` for navigation history
+   - `app_logs` for structured Talker/runtime logs
+   - `network_requests` for metadata-only HTTP failures or slow calls
+   - `flutter_events` for raw recent runtime events by category
+6. For rebuild investigations, call `widget_rebuilds`. Ask the developer to
    interact with the app during the sample window if there is no UI activity.
-6. If the developer says nothing appears in VS Code Output, call
-   `mcp_activity_log`. Do not expect detailed app state to be printed to Output
-   automatically.
-7. Report findings with evidence and next actions. Include capability gaps when
-   the app has not installed runtime instrumentation.
-8. When tracking a bug, keep a compact trail:
-   - reproduction action or route
-   - relevant provider changes
-   - errors/logs/network failures
-   - rebuild hotspots if performance-related
-   - app repo files or symbols implicated by the runtime evidence
+7. If MCP output is unclear, call `mcp_activity_log`.
+8. Use `reconnect_last` only when the MCP server is still running and the app
+   was restarted with a new VM Service URI not yet provided by the developer.
+
+## Issue Playbooks
+
+### Provider value looks wrong
+
+```text
+connect_and_diagnose (summary=true)
+riverpod_state
+app_logs
+```
+
+Report `currentProviders.<name>.value` as the live value.
+
+### Route/navigation issue
+
+```text
+connect_and_diagnose (summary=true)
+go_router_state
+flutter_events (type=route)
+```
+
+### Network failure
+
+```text
+connect_and_diagnose (summary=true)
+network_requests
+app_logs
+```
+
+### Rebuild/performance concern
+
+```text
+connect_and_diagnose (summary=true)
+widget_rebuilds
+flutter_diagnostics_bundle
+```
+
+Ask the developer to interact with the UI during `widget_rebuilds`.
 
 ## Interpretation Rules
 
-- Empty rebuild results can mean the app was idle during sampling, not that rebuild tracking is broken.
-- Missing provider, route, log, or network sections usually means the corresponding adapter or forwarding call has not been wired into the app.
-- MCP server stdout is protocol-only. Human-readable activity is in stderr when VS Code exposes it, and always in `.dart_tool/flutter_agent_mcp_server.log`.
-- The server log path is relative to the process working directory chosen by
-  the MCP client. In app-repo usage this is often the app workspace, but client
-  behavior can vary.
-- Network bodies are intentionally not captured. Do not ask for or infer request/response bodies from v1 diagnostics.
+- Do not use Dart Tooling Daemon, Widget Inspector, Flutter Driver, or source
+  code to infer live provider values when `flutter-agent-runtime` should be used.
+- Do not call `flutter_status` or `flutter_events` before `flutter_diagnostics_bundle`.
+- Empty rebuild results can mean the app was idle during sampling.
+- Missing provider, route, log, or network sections usually means missing adapters.
+- Network bodies are intentionally not captured.
 
 ## Expected Output
 
-Summarize:
+Use this template:
 
-- connection status and instrumentation capability status
-- current route and notable navigation events
-- provider count and recent suspicious provider changes
-- latest runtime errors or failed network requests
-- top rebuild hotspots with source locations when available
-- concrete next debugging or code changes
+1. **Connection** — connected, instrumentation present or missing
+2. **Current route** — from `currentRoute`
+3. **Current providers** — from `currentProviders`
+4. **Recent issues** — errors, failed network, suspicious logs
+5. **Next step** — one concrete follow-up
