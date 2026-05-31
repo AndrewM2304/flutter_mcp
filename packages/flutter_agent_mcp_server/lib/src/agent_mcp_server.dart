@@ -449,9 +449,16 @@ class AgentMcpServer {
     if (root == null || root.isEmpty || location == 'unknown') {
       return location;
     }
-    if (location.startsWith('/')) return location;
     if (location.startsWith('file://')) return Uri.parse(location).toFilePath();
-    return location;
+    if (location.startsWith('/') || location.startsWith('package:')) {
+      return location;
+    }
+    final rootUri = Uri.directory(root);
+    try {
+      return rootUri.resolve(location).toFilePath();
+    } catch (_) {
+      return location;
+    }
   }
 
   VmServiceClient _requireClient() {
@@ -621,6 +628,8 @@ final _tools = <_Tool>[
       'type': 'object',
       'properties': {
         'redactedHeaders': {'type': 'string'},
+        'redactedFields': {'type': 'string'},
+        'maxSerializedStringLength': {'type': 'number'},
       },
     },
   ),

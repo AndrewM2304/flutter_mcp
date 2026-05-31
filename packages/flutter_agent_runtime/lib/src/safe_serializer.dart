@@ -1,13 +1,30 @@
 typedef AgentValueSerializer = Object? Function(Object? value);
 
 class SafeSerializer {
-  SafeSerializer({Iterable<AgentValueSerializer> serializers = const []})
-      : _serializers = List<AgentValueSerializer>.of(serializers);
+  SafeSerializer({
+    Iterable<AgentValueSerializer> serializers = const [],
+    Iterable<String> redactedKeys = const [],
+    this.maxStringLength = 500,
+  })  : _serializers = List<AgentValueSerializer>.of(serializers),
+        _redactedKeys = redactedKeys.map(_normalizeKey).toSet();
 
   final List<AgentValueSerializer> _serializers;
+  final Set<String> _redactedKeys;
+  final int maxStringLength;
 
   void addSerializer(AgentValueSerializer serializer) {
     _serializers.add(serializer);
+  }
+
+  SafeSerializer copyWith({
+    Iterable<String>? redactedKeys,
+    int? maxStringLength,
+  }) {
+    return SafeSerializer(
+      serializers: _serializers,
+      redactedKeys: redactedKeys ?? _redactedKeys,
+      maxStringLength: maxStringLength ?? this.maxStringLength,
+    );
   }
 
   Object? serialize(Object? value, {int depth = 4}) {
@@ -18,8 +35,11 @@ class SafeSerializer {
       }
     }
 
-    if (value == null || value is String || value is num || value is bool) {
+    if (value == null || value is num || value is bool) {
       return value;
+    }
+    if (value is String) {
+      return _truncate(value);
     }
     if (depth <= 0) {
       return _summary(value);
@@ -41,7 +61,10 @@ class SafeSerializer {
       var count = 0;
       for (final entry in value.entries) {
         if (count++ >= 50) break;
-        result[entry.key.toString()] = serialize(entry.value, depth: depth - 1);
+        final key = entry.key.toString();
+        result[key] = _isRedactedKey(key)
+            ? '<redacted>'
+            : serialize(entry.value, depth: depth - 1);
       }
       return result;
     }
@@ -50,6 +73,19 @@ class SafeSerializer {
 
   Map<String, Object?> _summary(Object? value) => {
         'type': value.runtimeType.toString(),
-        'summary': value.toString(),
+        'summary': _truncate(value.toString()),
       };
+
+  bool _isRedactedKey(String key) => _redactedKeys.contains(_normalizeKey(key));
+
+  String _truncate(String value) {
+    if (maxStringLength <= 0 || value.length <= maxStringLength) {
+      return value;
+    }
+    return '${value.substring(0, maxStringLength)}...<truncated>';
+  }
+
+  static String _normalizeKey(String key) {
+    return key.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
+  }
 }

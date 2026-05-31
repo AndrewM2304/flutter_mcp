@@ -15,6 +15,21 @@ class AgentRuntimeConfig {
       'x-auth-token',
       'proxy-authorization',
     },
+    this.redactedFieldNames = const {
+      'access_token',
+      'api_key',
+      'apikey',
+      'auth_token',
+      'authorization',
+      'cookie',
+      'id_token',
+      'password',
+      'refresh_token',
+      'secret',
+      'session',
+      'token',
+    },
+    this.maxSerializedStringLength = 500,
   });
 
   final int eventBufferSize;
@@ -25,6 +40,8 @@ class AgentRuntimeConfig {
   final int rebuildBufferSize;
   final int errorBufferSize;
   final Set<String> redactedHeaderNames;
+  final Set<String> redactedFieldNames;
+  final int maxSerializedStringLength;
 
   AgentRuntimeConfig copyWith({
     int? eventBufferSize,
@@ -35,6 +52,8 @@ class AgentRuntimeConfig {
     int? rebuildBufferSize,
     int? errorBufferSize,
     Set<String>? redactedHeaderNames,
+    Set<String>? redactedFieldNames,
+    int? maxSerializedStringLength,
   }) {
     return AgentRuntimeConfig(
       eventBufferSize: eventBufferSize ?? this.eventBufferSize,
@@ -45,6 +64,9 @@ class AgentRuntimeConfig {
       rebuildBufferSize: rebuildBufferSize ?? this.rebuildBufferSize,
       errorBufferSize: errorBufferSize ?? this.errorBufferSize,
       redactedHeaderNames: redactedHeaderNames ?? this.redactedHeaderNames,
+      redactedFieldNames: redactedFieldNames ?? this.redactedFieldNames,
+      maxSerializedStringLength:
+          maxSerializedStringLength ?? this.maxSerializedStringLength,
     );
   }
 
@@ -57,5 +79,7 @@ class AgentRuntimeConfig {
         'rebuildBufferSize': rebuildBufferSize,
         'errorBufferSize': errorBufferSize,
         'redactedHeaderNames': redactedHeaderNames.toList()..sort(),
+        'redactedFieldNames': redactedFieldNames.toList()..sort(),
+        'maxSerializedStringLength': maxSerializedStringLength,
       };
 }

@@ -7,7 +7,7 @@
 It is an MCP stdio server. That means an MCP client starts it as a child process and talks to it over stdin/stdout. If you run this command by hand:
 
 ```bash
-dart packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart
+dart <path-to-tooling-repo>/packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart
 ```
 
 it is normal for it to appear idle. It is waiting for an MCP client.
@@ -19,7 +19,7 @@ it is normal for it to appear idle. It is waiting for an MCP client.
 In terminal 1:
 
 ```bash
-cd /Users/andrewmiller/Development/mcp/examples/runtime_sample_app
+cd <flutter-app-repo>
 flutter run -d macos
 ```
 
@@ -31,9 +31,10 @@ The Dart VM Service is listening on http://127.0.0.1:XXXXX/abc123=/
 
 Copy that full URL.
 
-### 2. Let VS Code Start The MCP Server
+### 2. Let The App Repo Agent Start The MCP Server
 
-The repo contains:
+In the Flutter app repo or app sub-repo, configure the agent client to start the
+server from the external tooling repo:
 
 ```text
 .vscode/mcp.json
@@ -46,13 +47,17 @@ with this server:
   "servers": {
     "flutter-agent-runtime": {
       "command": "dart",
-      "args": ["packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart"]
+      "args": [
+        "<path-to-tooling-repo>/packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart"
+      ]
     }
   }
 }
 ```
 
-Reload VS Code so it discovers this MCP config.
+Reload VS Code or the agent client so it discovers this MCP config. The current
+chat can be in the app repo; the MCP server does not need to live under that
+repo.
 
 Do not configure VS Code MCP with `dart run flutter_agent_mcp_server`. `dart run` can print package build messages to stdout before the MCP response, and stdio MCP requires stdout to contain only protocol messages.
 
@@ -65,7 +70,7 @@ Use the flutter-agent-runtime MCP server.
 Connect to my running Flutter app with VM Service URI:
 http://127.0.0.1:XXXXX/abc123=/
 workspace_root:
-/Users/andrewmiller/Development/mcp/examples/runtime_sample_app
+<absolute-path-to-flutter-app-repo>
 Then run flutter_diagnostics_bundle.
 ```
 
@@ -76,7 +81,7 @@ The agent should call:
   "name": "connect_to_app",
   "arguments": {
     "uri": "http://127.0.0.1:XXXXX/abc123=/",
-    "workspace_root": "/Users/andrewmiller/Development/mcp/examples/runtime_sample_app"
+    "workspace_root": "<absolute-path-to-flutter-app-repo>"
   }
 }
 ```
@@ -97,21 +102,28 @@ widget_rebuilds
 You usually do not need this. It only proves the stdio protocol works.
 
 ```bash
-printf 'Content-Length: 58\r\n\r\n{"jsonrpc":"2.0","id":1,"method":"initialize","params":{}}' \
-  | dart packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart
+dart tool/mcp_stdio_smoke.dart
 ```
 
-You should see a response starting with:
+You should see:
 
 ```text
-Content-Length:
+[initialize] ok
+[tools/list] ok
 ```
 
-If the content length is wrong, the server will wait for more bytes and appear stuck.
+For a live app smoke test, start the Flutter app in debug mode, copy the VM
+Service URI, then run:
+
+```bash
+dart tool/mcp_stdio_smoke.dart \
+  --vm-service-uri "http://127.0.0.1:XXXXX/abc123=/" \
+  --workspace-root "<absolute-path-to-flutter-app-repo>"
+```
 
 ## What Not To Do
 
-- Do not type commands into the terminal where `dart packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart` is waiting.
+- Do not type commands into the terminal where `dart <path-to-tooling-repo>/packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart` is waiting.
 - Do not expect a localhost URL from the MCP server.
 - Do not paste the Flutter VM Service URL into the MCP server terminal. Give it to the agent, and the agent calls `connect_to_app`.
 

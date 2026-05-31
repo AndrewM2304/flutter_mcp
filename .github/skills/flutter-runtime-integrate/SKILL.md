@@ -6,35 +6,48 @@ argument-hint: "[Flutter app path]"
 
 # Flutter Runtime Integration
 
-This skill updates app code so agents can inspect runtime state through the local MCP server. Follow [observer shape guidance](./references/observer-shapes.md) and keep all existing observers working.
+This skill updates app repo or app sub-repo code so agents can inspect runtime
+state through the external `flutter-agent-runtime` MCP server. Follow
+[observer shape guidance](./references/observer-shapes.md) and keep all
+existing observers working.
 
 ## Process
 
-1. Locate app bootstrap, `ProviderScope`, router construction, Talker setup, and centralized network logging or client wrappers.
-2. Add path dependencies to the app:
+1. Confirm the current workspace is the Flutter app repo or sub-repo that owns
+   the code being debugged, not the MCP tooling repo.
+2. Locate app bootstrap, `ProviderScope`, router construction, Talker setup,
+   and centralized network logging or client wrappers.
+3. Add path or git dependencies to the app:
 
 ```yaml
 dependencies:
   flutter_agent_runtime:
-    path: ../mcp/packages/flutter_agent_runtime
+    path: <path-to-tooling-repo>/packages/flutter_agent_runtime
   flutter_agent_runtime_adapters:
-    path: ../mcp/packages/flutter_agent_runtime_adapters
+    path: <path-to-tooling-repo>/packages/flutter_agent_runtime_adapters
 ```
 
-Adjust relative paths for the app location.
+Adjust paths for the app location. If work uses git dependencies or an internal
+package registry, use that form instead. Do not add
+`flutter_agent_mcp_server` as an app runtime dependency; keep it in agent/tooling
+configuration.
 
-3. Initialize before `runApp`:
+4. Initialize before `runApp` from debug/development bootstrap code:
 
 ```dart
 AgentRuntime.init();
 AgentRuntime.installErrorHooks();
 ```
 
-4. Append `const AgentProviderObserver()` to existing Riverpod observers.
-5. Append `AgentGoRouterObserver()` to GoRouter observers and forward redirects or route errors from existing router callbacks where available.
-6. Add `AgentTalkerObserver` as the Talker observer, or create a composite observer if the app already has one.
-7. Add `AgentNetworkObserver.recordRequest(...)` in the existing HTTP/Dio/network logging layer. Record metadata only. Do not capture request or response bodies.
-8. Run the smallest relevant validation:
+5. Append `const AgentProviderObserver()` to existing Riverpod observers.
+6. Append `AgentGoRouterObserver()` to GoRouter observers and forward redirects
+   or route errors from existing router callbacks where available.
+7. Add `AgentTalkerObserver` as the Talker observer, or create a composite
+   observer if the app already has one.
+8. Add `AgentNetworkObserver.recordRequest(...)` in the existing HTTP/Dio/network
+   logging layer. Record metadata only. Do not capture request or response
+   bodies.
+9. Run the smallest relevant validation:
 
 ```bash
 flutter pub get
@@ -53,7 +66,9 @@ Use package-specific commands if the app is inside a larger monorepo.
 
 ## Validation With MCP
 
-After code changes, ask the developer to run the app in debug mode and provide the VM Service URL. Then use:
+After code changes, ask the developer to run the app in debug mode and provide
+the VM Service URL. Confirm the current app repo's MCP client can see
+`flutter-agent-runtime`, then use:
 
 ```text
 connect_to_app

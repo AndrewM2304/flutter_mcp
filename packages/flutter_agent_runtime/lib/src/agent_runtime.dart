@@ -51,7 +51,11 @@ class AgentRuntime {
   }) {
     if (_initialized) return;
     _config = config;
-    _serializer = SafeSerializer(serializers: serializers);
+    _serializer = SafeSerializer(
+      serializers: serializers,
+      redactedKeys: _config.redactedFieldNames,
+      maxStringLength: _config.maxSerializedStringLength,
+    );
     _events = RingBuffer<AgentEvent>(_config.eventBufferSize);
     _providers = RingBuffer<AgentEvent>(_config.providerBufferSize);
     _routes = RingBuffer<AgentEvent>(_config.routeBufferSize);
@@ -429,6 +433,28 @@ class AgentRuntime {
             .toSet(),
       );
     }
+    final redactedFields = parameters['redactedFields'];
+    if (redactedFields != null && redactedFields.trim().isNotEmpty) {
+      _config = _config.copyWith(
+        redactedFieldNames: redactedFields
+            .split(',')
+            .map((field) => field.trim().toLowerCase())
+            .where((field) => field.isNotEmpty)
+            .toSet(),
+      );
+    }
+    final maxStringLength = int.tryParse(
+      parameters['maxSerializedStringLength'] ?? '',
+    );
+    if (maxStringLength != null) {
+      _config = _config.copyWith(
+        maxSerializedStringLength: maxStringLength.clamp(0, 10000).toInt(),
+      );
+    }
+    _serializer = _serializer.copyWith(
+      redactedKeys: _config.redactedFieldNames,
+      maxStringLength: _config.maxSerializedStringLength,
+    );
     return developer.ServiceExtensionResponse.result(
       _jsonString({'ok': true, 'config': _config.toJson()}),
     );
@@ -547,12 +573,19 @@ class AgentRuntime {
 
   Map<String, Object?> _redactHeaders(Map<String, Object?> headers) {
     return headers.map((key, value) {
-      final normalized = key.toLowerCase();
-      if (_config.redactedHeaderNames.contains(normalized)) {
+      final normalized = _normalizeSensitiveKey(key);
+      final redacted = _config.redactedHeaderNames.any(
+        (header) => _normalizeSensitiveKey(header) == normalized,
+      );
+      if (redacted) {
         return MapEntry(key, '<redacted>');
       }
       return MapEntry(key, _serializer.serialize(value));
     });
+  }
+
+  String _normalizeSensitiveKey(String key) {
+    return key.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]'), '');
   }
 
   Map<String, Object?> _errorJson(Object error, StackTrace? stackTrace) => {

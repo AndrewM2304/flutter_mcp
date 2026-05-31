@@ -6,14 +6,20 @@ argument-hint: "[VM Service or DevTools URL] [workspace root]"
 
 # Flutter Runtime Debug
 
-This skill runs live diagnostics against the local `flutter_agent_runtime` MCP server. Follow the workflow in [MCP workflow](./references/mcp-workflow.md).
+This skill runs live diagnostics from the current Flutter app repo or app
+sub-repo against the `flutter_agent_runtime` MCP server. The MCP server may live
+in a separate tooling repo and should be exposed to the current agent session as
+`flutter-agent-runtime`. Follow the workflow in
+[MCP workflow](./references/mcp-workflow.md).
 
 ## Inputs
 
 Collect these before calling MCP tools:
 
 - `uri`: the Flutter VM Service URL or DevTools URL from `flutter run`.
-- `workspace_root`: the app root, such as `/Users/andrewmiller/Development/mcp/examples/runtime_sample_app`.
+- `workspace_root`: the absolute path to the Flutter app repo or sub-repo being
+  debugged. Do not use the MCP tooling repo path unless that is also the app
+  under test.
 
 If the user gives a DevTools URL, use it directly or normalize it to the base VM Service URL. Both forms are acceptable:
 
@@ -24,23 +30,39 @@ http://127.0.0.1:49654/85TQl9gidoE=/devtools/?uri=ws://127.0.0.1:49654/85TQl9gid
 
 ## Process
 
-1. Call `connect_to_app` with `uri` and `workspace_root`.
-2. Call `flutter_diagnostics_bundle` and use it as the main summary.
-3. Call targeted tools only when useful:
+1. Confirm the `flutter-agent-runtime` MCP tools are available. If they are not
+   available, ask the developer to configure the current app repo's MCP client
+   to start the server script from the tooling repo.
+2. Call `connect_to_app` with `uri` and `workspace_root`.
+3. Call `flutter_diagnostics_bundle` and use it as the main summary.
+4. Call targeted tools only when useful:
    - `riverpod_state` for provider lifecycle, updates, and latest values.
    - `go_router_state` for route stack, current location, redirects, and route errors.
    - `app_logs` for structured Talker/runtime logs.
    - `network_requests` for metadata-only HTTP failures or slow calls.
    - `flutter_events` for raw recent runtime events by category.
-4. For rebuild investigations, call `widget_rebuilds`. Ask the developer to interact with the app during the sample window if there is no UI activity.
-5. If the developer says nothing appears in VS Code Output, call `mcp_activity_log` and reference `.dart_tool/flutter_agent_mcp_server.log`. Do not expect detailed app state to be printed to Output automatically.
-6. Report findings with evidence and next actions. Include capability gaps when the app has not installed runtime instrumentation.
+5. For rebuild investigations, call `widget_rebuilds`. Ask the developer to
+   interact with the app during the sample window if there is no UI activity.
+6. If the developer says nothing appears in VS Code Output, call
+   `mcp_activity_log`. Do not expect detailed app state to be printed to Output
+   automatically.
+7. Report findings with evidence and next actions. Include capability gaps when
+   the app has not installed runtime instrumentation.
+8. When tracking a bug, keep a compact trail:
+   - reproduction action or route
+   - relevant provider changes
+   - errors/logs/network failures
+   - rebuild hotspots if performance-related
+   - app repo files or symbols implicated by the runtime evidence
 
 ## Interpretation Rules
 
 - Empty rebuild results can mean the app was idle during sampling, not that rebuild tracking is broken.
 - Missing provider, route, log, or network sections usually means the corresponding adapter or forwarding call has not been wired into the app.
 - MCP server stdout is protocol-only. Human-readable activity is in stderr when VS Code exposes it, and always in `.dart_tool/flutter_agent_mcp_server.log`.
+- The server log path is relative to the process working directory chosen by
+  the MCP client. In app-repo usage this is often the app workspace, but client
+  behavior can vary.
 - Network bodies are intentionally not captured. Do not ask for or infer request/response bodies from v1 diagnostics.
 
 ## Expected Output

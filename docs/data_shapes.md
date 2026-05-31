@@ -83,6 +83,12 @@ All runtime events include:
 
 Request and response bodies are intentionally absent in v1.
 
+Headers matching the configured redaction list are replaced with
+`"<redacted>"`. Runtime maps such as provider values, log fields, route
+arguments, and network attributes also redact configured sensitive field names
+such as tokens, passwords, cookies, and API keys. Long serialized strings are
+truncated to keep responses bounded.
+
 ## Rebuild Event
 
 ```json

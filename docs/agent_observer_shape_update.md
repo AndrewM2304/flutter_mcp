@@ -13,9 +13,9 @@ Keep all existing observers working and add agent runtime forwarding beside them
 ```yaml
 dependencies:
   flutter_agent_runtime:
-    path: ../mcp/packages/flutter_agent_runtime
+    path: <path-to-tooling-repo>/packages/flutter_agent_runtime
   flutter_agent_runtime_adapters:
-    path: ../mcp/packages/flutter_agent_runtime_adapters
+    path: <path-to-tooling-repo>/packages/flutter_agent_runtime_adapters
 ```
 
 2. Import the packages near the app bootstrap/router/logger setup:

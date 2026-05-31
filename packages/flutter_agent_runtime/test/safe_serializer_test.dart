@@ -23,4 +23,25 @@ void main() {
       'uri': 'https://example.com',
     });
   });
+
+  test('redacts configured map keys', () {
+    final serializer =
+        SafeSerializer(redactedKeys: ['api_key', 'access_token']);
+
+    expect(
+        serializer.serialize({
+          'apiKey': 'secret',
+          'nested': {'access-token': 'also-secret'},
+        }),
+        {
+          'apiKey': '<redacted>',
+          'nested': {'access-token': '<redacted>'},
+        });
+  });
+
+  test('truncates long strings', () {
+    final serializer = SafeSerializer(maxStringLength: 4);
+
+    expect(serializer.serialize('abcdef'), 'abcd...<truncated>');
+  });
 }

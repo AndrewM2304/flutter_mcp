@@ -16,7 +16,7 @@ class VmServiceClient {
   Stream<Map<String, Object?>> get extensionEvents => _extensionEvents.stream;
 
   static Future<VmServiceClient> connect(String uri) async {
-    final socket = await WebSocket.connect(_normalizeToWsUri(uri));
+    final socket = await WebSocket.connect(normalizeToWsUri(uri));
     final client = VmServiceClient._(socket);
     client._listen();
     await client._selectMainIsolate();
@@ -129,15 +129,19 @@ class VmServiceClient {
     );
   }
 
-  static String _normalizeToWsUri(String uri) {
-    var value = uri.trim();
-    if (!value.startsWith('ws')) {
-      value = value
-          .replaceFirst('http://', 'ws://')
-          .replaceFirst('https://', 'wss://');
+  static String normalizeToWsUri(String uri) {
+    final parsed = Uri.tryParse(uri.trim());
+    final devToolsVmServiceUri = parsed?.queryParameters['uri'];
+    var value = devToolsVmServiceUri == null || devToolsVmServiceUri.isEmpty
+        ? uri.trim()
+        : devToolsVmServiceUri.trim();
+    if (value.startsWith('http://')) {
+      value = value.replaceFirst('http://', 'ws://');
+    } else if (value.startsWith('https://')) {
+      value = value.replaceFirst('https://', 'wss://');
     }
     if (!value.endsWith('/ws')) {
-      value = value.replaceAll(RegExp(r'/?$'), '/ws');
+      value = value.endsWith('/') ? '${value}ws' : '$value/ws';
     }
     return value;
   }

@@ -24,9 +24,9 @@ The runtime is debug-only by default and no-ops in release builds.
 ```yaml
 dependencies:
   flutter_agent_runtime:
-    path: ../mcp/packages/flutter_agent_runtime
+    path: <path-to-tooling-repo>/packages/flutter_agent_runtime
   flutter_agent_runtime_adapters:
-    path: ../mcp/packages/flutter_agent_runtime_adapters
+    path: <path-to-tooling-repo>/packages/flutter_agent_runtime_adapters
 ```
 
 ```dart
@@ -75,9 +75,21 @@ final talker = Talker(
 
 The MCP server exposes `flutter_diagnostics_bundle` as the preferred first call for agents. It returns current route, provider activity, latest errors, failed network requests, top rebuild hotspots, and recent logs in one response.
 
+## Validation
+
+From the tooling repo root:
+
+```bash
+./tool/validate.sh
+dart tool/mcp_stdio_smoke.dart
+```
+
+Use `dart tool/mcp_stdio_smoke.dart --vm-service-uri <uri> --workspace-root <app-root>` for a live app smoke test.
+
 ## Docs
 
 - [Setup](docs/setup.md)
+- [Importing into work repos](docs/importing_at_work.md)
 - [Using with agents](docs/using_with_agents.md)
 - [Runtime data shapes](docs/data_shapes.md)
 - [One-time observer shape update instructions](docs/agent_observer_shape_update.md)
