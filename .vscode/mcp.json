@@ -1,0 +1,10 @@
+{
+  "servers": {
+    "flutter-agent-runtime": {
+      "command": "dart",
+      "args": [
+        "packages/flutter_agent_mcp_server/bin/flutter_agent_mcp_server.dart"
+      ]
+    }
+  }
+}

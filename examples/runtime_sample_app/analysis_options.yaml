@@ -1,0 +1,9 @@
+analyzer:
+  exclude:
+    - "**/.dart_tool/**"
+    - "**/build/**"
+
+linter:
+  rules:
+    - avoid_print
+    - prefer_final_locals

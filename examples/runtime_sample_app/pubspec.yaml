@@ -1,0 +1,22 @@
+name: runtime_sample_app
+description: Sample app for Flutter Agent Runtime MCP validation.
+publish_to: none
+version: 0.1.0
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_riverpod: ^2.5.1
+  go_router: ^14.0.0
+  flutter_agent_runtime:
+    path: ../../packages/flutter_agent_runtime
+  flutter_agent_runtime_adapters:
+    path: ../../packages/flutter_agent_runtime_adapters
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  lints: ^4.0.0

@@ -1,0 +1,9 @@
+name: flutter_agent_runtime_workspace
+publish_to: none
+
+environment:
+  sdk: ">=3.3.0 <4.0.0"
+
+dependencies:
+  flutter_agent_mcp_server:
+    path: packages/flutter_agent_mcp_server
